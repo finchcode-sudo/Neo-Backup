@@ -70,14 +70,15 @@ fun getStats(appsList: List<Package>): AppStats {   //TODO hg42 we actually want
     return AppStats(appsList.size, nBackups, nUpdated, szApps, szData)
 }
 
+// ✅ 原来对每个已安装应用单独调用一次 getPackageInfo(pkg, GET_PERMISSIONS)，
+// 是 N 次跨进程 IPC；getInstalledPackages() 本身就支持直接带上 GET_PERMISSIONS
+// 这个 flag，系统一次批量返回所有应用（含权限信息），改成 1 次调用。
 fun PackageManager.getInstalledPackageInfosWithPermissions() =
-    getInstalledPackages(0).mapNotNull {
-        try {
-            getPackageInfo(it.packageName, PackageManager.GET_PERMISSIONS)
-        } catch (e: Throwable) {
-            LogsHandler.unexpectedException(e)
-            null
-        }
+    try {
+        getInstalledPackages(PackageManager.GET_PERMISSIONS)
+    } catch (e: Throwable) {
+        LogsHandler.unexpectedException(e)
+        emptyList()
     }
 
 fun List<AppExtras>.get(packageName: String) =
