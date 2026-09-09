@@ -710,7 +710,9 @@ suspend fun Context.updateAppTables() {
         } catch (e: Throwable) {
             logException(e, backTrace = true)
         } finally {
-            endNanoTimer("unsuspend")
+            // ✅ 临时诊断：把耗时直接打到屏幕日志（NeoApp.addInfoLogText），原来只写 Timber/logcat 看不到
+            val t = endNanoTimer("unsuspend")
+            NeoApp.addInfoLogText("  unsuspend: ${"%.3f".format(t / 1E9)} sec")
         }
 
         ensureBackups()
@@ -731,7 +733,8 @@ suspend fun Context.updateAppTables() {
                 logException(e, backTrace = true)
                 emptyList()
             } finally {
-                endNanoTimer("uninstalledPackagesWithBackup")
+                val t = endNanoTimer("uninstalledPackagesWithBackup")
+                NeoApp.addInfoLogText("  uninstalledPackagesWithBackup: ${"%.3f".format(t / 1E9)} sec")
             }
 
         val appInfoList =
@@ -745,7 +748,8 @@ suspend fun Context.updateAppTables() {
                 logException(e, backTrace = true)
                 emptyList()
             } finally {
-                endNanoTimer("appInfoList")
+                val t = endNanoTimer("appInfoList")
+                NeoApp.addInfoLogText("  appInfoList: ${"%.3f".format(t / 1E9)} sec (n=${installedPackageInfos.size})")
             }
 
         try {
@@ -758,7 +762,8 @@ suspend fun Context.updateAppTables() {
         } catch (e: Throwable) {
             logException(e, backTrace = true)
         } finally {
-            endNanoTimer("dbUpdate")
+            val t = endNanoTimer("dbUpdate")
+            NeoApp.addInfoLogText("  dbUpdate: ${"%.3f".format(t / 1E9)} sec")
         }
 
     } catch (e: Throwable) {
