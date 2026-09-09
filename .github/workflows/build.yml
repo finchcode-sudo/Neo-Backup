@@ -28,4 +28,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Neo-Backup-Release
-          path: app/build/outputs/apk/release/*.apk
+          # ✅ 这个项目是单模块结构（代码直接在根目录 src/main/java 下，没有 app/ 子模块），
+          # 之前写的 app/build/outputs/... 这个路径根本不存在，导致上传步骤匹配不到任何文件、
+          # 静默不上传任何产物（assembleRelease 本身成功所以 job 仍显示绿色，容易误以为"编译成功=有APK可下"）
+          path: build/outputs/apk/release/*.apk
