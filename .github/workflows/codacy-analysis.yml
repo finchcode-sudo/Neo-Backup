@@ -18,6 +18,10 @@ jobs:
   codacy-security-scan:
     name: Codacy Security Scan
     runs-on: ubuntu-latest
+    # ✅ 没有这段权限声明，GitHub 会拒绝这次扫描往 Code Scanning 写结果（403 Resource not accessible）
+    permissions:
+      contents: read
+      security-events: write
     steps:
       # Checkout the repository to the GitHub Actions runner
       - name: Checkout code
@@ -40,7 +44,8 @@ jobs:
           max-allowed-issues: 2147483647
 
       # Upload the SARIF file generated in the previous step
+      # ✅ v1 已在 2023-01-18 被 GitHub 弃用停止维护，升级到 v3
       - name: Upload SARIF results file
-        uses: github/codeql-action/upload-sarif@v1
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: results.sarif
