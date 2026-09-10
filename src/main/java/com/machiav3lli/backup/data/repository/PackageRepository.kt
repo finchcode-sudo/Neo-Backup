@@ -66,6 +66,10 @@ class PackageRepository(
     suspend fun upsertAppInfo(vararg appInfos: AppInfo) =
         dao.upsert(*appInfos)
 
+    // ✅ 供 updateAppTables() 做增量对比用：读一次上次已经存好的 AppInfo，
+    // 版本没变的应用可以直接复用，不用再付一次 loadLabel() 的代价
+    suspend fun getAllAppInfos(): List<AppInfo> = dao.getAll()
+
     suspend fun replaceAppInfos(vararg appInfos: AppInfo) =
         dao.updateList(*appInfos)
 
