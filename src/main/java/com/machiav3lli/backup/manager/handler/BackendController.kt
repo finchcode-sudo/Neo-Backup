@@ -55,6 +55,8 @@ import com.machiav3lli.backup.utils.TraceUtils.logNanoTiming
 import com.machiav3lli.backup.utils.getInstalledPackageInfosWithPermissions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.launch
@@ -741,9 +743,14 @@ suspend fun Context.updateAppTables() {
             try {
                 beginNanoTimer("appInfoList")
 
-                installedPackageInfos
-                    .map { AppInfo(this, it) }
-                    .union(uninstalledPackagesWithBackup)
+                // ✅ 每个 AppInfo(context, pi) 构造内部都要调一次 loadLabel()，
+                // 经常要打开/解析目标应用的资源文件，是纯 IO 等待、彼此互不依赖，
+                // 之前串行 .map 跑 N 次，现在用文件里已有的 scanPool（IO 线程池）并行跑
+                coroutineScope {
+                    installedPackageInfos
+                        .map { pi -> async(scanPool) { AppInfo(this@updateAppTables, pi) } }
+                        .awaitAll()
+                }.union(uninstalledPackagesWithBackup)
             } catch (e: Throwable) {
                 logException(e, backTrace = true)
                 emptyList()
