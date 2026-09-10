@@ -19,6 +19,8 @@ package com.machiav3lli.backup.manager.handler
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import android.os.Build
+import com.machiav3lli.backup.utils.extensions.Android
 import com.machiav3lli.backup.BACKUP_INSTANCE_PROPERTIES_INDIR
 import com.machiav3lli.backup.BACKUP_INSTANCE_REGEX_PATTERN
 import com.machiav3lli.backup.BACKUP_PACKAGE_FOLDER_REGEX_PATTERN
@@ -743,12 +745,23 @@ suspend fun Context.updateAppTables() {
             try {
                 beginNanoTimer("appInfoList")
 
-                // ✅ 每个 AppInfo(context, pi) 构造内部都要调一次 loadLabel()，
-                // 经常要打开/解析目标应用的资源文件，是纯 IO 等待、彼此互不依赖，
-                // 之前串行 .map 跑 N 次，现在用文件里已有的 scanPool（IO 线程池）并行跑
+                // ✅ 学 SDKMonitor 的思路：版本没变的应用直接复用上次存好的 AppInfo，
+                // 只对"新装的/版本变了的"应用才真正走 AppInfo(context, pi) 构造（那一步的 loadLabel() 才是真正贵的部分）
+                val existingByName = packagesRepo.getAllAppInfos().associateBy { it.packageName }
                 coroutineScope {
                     installedPackageInfos
-                        .map { pi -> async(scanPool) { AppInfo(this@updateAppTables, pi) } }
+                        .map { pi ->
+                            val versionCode =
+                                if (Android.minSDK(Build.VERSION_CODES.P)) pi.longVersionCode.toInt()
+                                else pi.versionCode
+                            val existing = existingByName[pi.packageName]
+                            if (existing != null && existing.versionCode == versionCode) {
+                                // 命中：这个应用自上次记录后没有更新过，跳过重新构造
+                                kotlinx.coroutines.CompletableDeferred(existing as AppInfo)
+                            } else {
+                                async(scanPool) { AppInfo(this@updateAppTables, pi) }
+                            }
+                        }
                         .awaitAll()
                 }.union(uninstalledPackagesWithBackup)
             } catch (e: Throwable) {
